@@ -1,36 +1,56 @@
-import { Injectable } from "@angular/core";
-import { HttpClient } from "@angular/common/http";
-import { Komentaras } from "./komentaras.model";
-import { Observable, Subject, Subscription } from "rxjs";
-import { map } from "rxjs/operators";
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Subscription } from 'rxjs';
+import { KomentaraiService } from '../komentarai.service';
+import { Komentaras } from '../komentaras.model';
+// kad git pamatytu komentara
+@Component({
+  selector: 'app-komentarai',
+  templateUrl: './komentarai.component.html',
+  styleUrls: ['./komentarai.component.css']
+})
+export class KomentaraiComponent implements OnInit, OnDestroy {
 
-@Injectable({providedIn:'root'})
-export class KomentaraiService{
+  public komentarai:Komentaras[]=[];
+  public loading:boolean=false;
+  public error:string;
+  public errorSubscription:Subscription;
+  @ViewChild('email', {static:true})  email:ElementRef<HTMLInputElement>;
+  @ViewChild('text', {static:true})  text:ElementRef<HTMLInputElement>;
 
-    error=new Subject<string>();
+  constructor( private komentaraiService:KomentaraiService ) { }
 
-    constructor (private http:HttpClient){
+  ngOnInit(): void {
+    console.log("PASILEIDZIA NAUJAS KOMPONENTAS");
+    this.errorSubscription=this.komentaraiService.error.subscribe((error)=>{
+      this.error=error;
+    });
+    this.loadKomentarai();
+  }
 
-    }
+  send(email:string, text:string){
+    this.komentaraiService.postKomentaras(email,text).subscribe(()=>{
+      this.loadKomentarai();
+      this.error=null;
+    }, (error)=>{
+      this.error=error.message;
+    });
+    this.email.nativeElement.value="";
+   
+    this.text.nativeElement.value="";
+  }
 
-    getKomentarai(){
-        return this.http
-        .get<{[key:string]:Komentaras}>("https://komentarai-3f204-default-rtdb.europe-west1.firebasedatabase.app/komentarai.json")
-        .pipe(map((responseData)=>{
-            const komentarai:Komentaras[]=[];
-            for(const key in responseData){
-                komentarai.push({ ...responseData[key], id:key });
-            }
-            return komentarai;
-        }));
-    }
+  loadKomentarai(){
+    this.loading=true;
+    this.komentaraiService.getKomentarai().subscribe((data)=>{
+      this.komentarai=data;
+      this.loading=false;
+    }, (error)=>{
+      this.error=error.message;
+    });
+  }
 
-    postKomentaras(email:string, text:string){
-        const komentaras:Komentaras={ email:email, text:text };
-        return this.http 
-        .post<{name:string}>("https://komentarai-3f204-default-rtdb.europe-west1.firebasedatabase.app/komentarai.json",komentaras)
-            // .subscribe((response)=>{
-            //     console.log(response);
-            // });
-    }
+  ngOnDestroy(){
+    this.errorSubscription.unsubscribe();
+  }
+
 }
